@@ -5,6 +5,27 @@ import (
 	"net"
 )
 
+func handleConn(conn net.Conn) {
+	defer conn.Close()
+
+	log.Println("new connection from", conn.RemoteAddr())
+
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("received", n, "bytes:", string(buf[:n]))
+
+	_, err = conn.Write([]byte("+PONG\r\n"))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
 func main() {
 	var addr = "0.0.0.0:6379"
 
@@ -15,8 +36,13 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	_, err = listen.Accept()
-	if err != nil {
-		log.Fatalln(err)
+	for {
+		conn, err := listen.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		handleConn(conn)
 	}
 }
