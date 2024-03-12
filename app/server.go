@@ -10,19 +10,21 @@ func handleConn(conn net.Conn) {
 
 	log.Println("new connection from", conn.RemoteAddr())
 
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	for {
+		buf := make([]byte, 1024)
+		n, err := conn.Read(buf)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
-	log.Println("received", n, "bytes:", string(buf[:n]))
+		log.Println("received", n, "bytes:", string(buf[:n]))
 
-	_, err = conn.Write([]byte("+PONG\r\n"))
-	if err != nil {
-		log.Println(err)
-		return
+		_, err = conn.Write([]byte("+PONG\r\n"))
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
 }
 
