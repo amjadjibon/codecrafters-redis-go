@@ -3,7 +3,30 @@ package main
 import (
 	"log"
 	"net"
+	"strings"
 )
+
+func parseRequest(request string) []byte {
+	request = strings.TrimPrefix(request, "\r\n")
+	requestParts := strings.Split(request, "\r\n")
+
+	if len(requestParts) < 3 {
+		return []byte("-ERR invalid request\r\n")
+	}
+
+	switch strings.ToLower(requestParts[2]) {
+	case "ping":
+		return []byte("+PONG\r\n")
+	case "echo":
+		if len(requestParts) < 5 {
+			return []byte("-ERR invalid request\r\n")
+		}
+
+		return []byte("+" + requestParts[4] + "\r\n")
+	}
+
+	return []byte("-ERR unknown command\r\n")
+}
 
 func handleConn(conn net.Conn) {
 	defer conn.Close()
@@ -20,7 +43,7 @@ func handleConn(conn net.Conn) {
 
 		log.Println("received", n, "bytes:", string(buf[:n]))
 
-		_, err = conn.Write([]byte("+PONG\r\n"))
+		_, err = conn.Write(parseRequest(string(buf[:n])))
 		if err != nil {
 			log.Println(err)
 			return
