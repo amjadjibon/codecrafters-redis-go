@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"strings"
 )
+
+var db = make(map[string]string)
 
 func parseRequest(request string) []byte {
 	request = strings.TrimPrefix(request, "\r\n")
@@ -23,6 +26,24 @@ func parseRequest(request string) []byte {
 		}
 
 		return []byte("+" + requestParts[4] + "\r\n")
+	case "set":
+		if len(requestParts) < 7 {
+			return []byte("-ERR invalid request\r\n")
+		}
+
+		db[requestParts[4]] = requestParts[6]
+		return []byte("+OK\r\n")
+	case "get":
+		if len(requestParts) < 5 {
+			return []byte("-ERR invalid request\r\n")
+		}
+
+		value, ok := db[requestParts[4]]
+		if !ok {
+			return []byte("$-1\r\n")
+		}
+
+		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(value), value))
 	}
 
 	return []byte("-ERR unknown command\r\n")
@@ -40,8 +61,6 @@ func handleConn(conn net.Conn) {
 			log.Println(err)
 			return
 		}
-
-		log.Println("received", n, "bytes:", string(buf[:n]))
 
 		_, err = conn.Write(parseRequest(string(buf[:n])))
 		if err != nil {
