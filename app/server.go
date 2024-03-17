@@ -5,9 +5,15 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
-var db = make(map[string]string)
+type Entry struct {
+	value      string
+	expiration int64
+}
+
+var db = make(map[string]Entry)
 
 func parseRequest(request string) []byte {
 	request = strings.TrimPrefix(request, "\r\n")
@@ -31,19 +37,39 @@ func parseRequest(request string) []byte {
 			return []byte("-ERR invalid request\r\n")
 		}
 
-		db[requestParts[4]] = requestParts[6]
+		entry := Entry{value: requestParts[6]}
+		if len(requestParts) > 8 {
+
+			if requestParts[8] != "px" {
+				return []byte("-ERR invalid request\r\n")
+			}
+
+			ttl, err := time.ParseDuration(requestParts[10] + "ms")
+			if err != nil {
+				return []byte("-ERR invalid request\r\n")
+			}
+
+			entry.expiration = time.Now().Add(ttl).UnixNano()
+		}
+
+		db[requestParts[4]] = entry
 		return []byte("+OK\r\n")
 	case "get":
 		if len(requestParts) < 5 {
 			return []byte("-ERR invalid request\r\n")
 		}
 
-		value, ok := db[requestParts[4]]
+		entry, ok := db[requestParts[4]]
 		if !ok {
 			return []byte("$-1\r\n")
 		}
 
-		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(value), value))
+		if entry.expiration > 0 && entry.expiration < time.Now().UnixNano() {
+			delete(db, requestParts[4])
+			return []byte("$-1\r\n")
+		}
+
+		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(entry.value), entry.value))
 	}
 
 	return []byte("-ERR unknown command\r\n")
@@ -75,7 +101,7 @@ func main() {
 
 	log.Println("start listening on", addr)
 
-	listen, err := net.Listen("tcp", "0.0.0.0:6379")
+	listen, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
 	}
