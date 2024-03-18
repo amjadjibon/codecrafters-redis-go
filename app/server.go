@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -97,7 +98,10 @@ func handleConn(conn net.Conn) {
 }
 
 func main() {
-	var addr = "0.0.0.0:6379"
+	var port = flag.String("port", "6379", "port to listen on")
+	flag.Parse()
+
+	var addr = fmt.Sprintf(":%s", *port)
 
 	log.Println("start listening on", addr)
 
